@@ -33,6 +33,7 @@ final class NetworkMonitor: ObservableObject {
     private var baselineSnapshot: [String: (bytesIn: Int64, bytesOut: Int64)] = [:]
     private var previousSnapshot: [String: (bytesIn: Int64, bytesOut: Int64)] = [:]
     private var sessionProcesses: [String: ProcessNetUsage] = [:]
+    private var retiredBytes: [String: (bytesIn: Int64, bytesOut: Int64)] = [:]
     private var isFirstSnapshot = true
     private var timer: Timer?
     private var appIconCache: [String: NSImage] = [:]
@@ -125,12 +126,51 @@ final class NetworkMonitor: ObservableObject {
 
         for key in sessionProcesses.keys {
             if !activeKeys.contains(key) {
-                sessionProcesses[key]?.rateIn = 0
-                sessionProcesses[key]?.rateOut = 0
+                if let proc = sessionProcesses[key] {
+                    let name = proc.processName
+                    let old = retiredBytes[name] ?? (bytesIn: Int64(0), bytesOut: Int64(0))
+                    retiredBytes[name] = (bytesIn: old.bytesIn + proc.bytesIn, bytesOut: old.bytesOut + proc.bytesOut)
+                    sessionProcesses.removeValue(forKey: key)
+                }
             }
         }
 
-        var allProcesses = Array(sessionProcesses.values)
+        var merged: [String: ProcessNetUsage] = [:]
+        for proc in sessionProcesses.values {
+            let name = proc.processName
+            let retired = retiredBytes[name] ?? (bytesIn: Int64(0), bytesOut: Int64(0))
+            if var existing = merged[name] {
+                existing.bytesIn += proc.bytesIn
+                existing.bytesOut += proc.bytesOut
+                existing.rateIn += proc.rateIn
+                existing.rateOut += proc.rateOut
+                merged[name] = existing
+            } else {
+                var p = proc
+                p.bytesIn += retired.bytesIn
+                p.bytesOut += retired.bytesOut
+                merged[name] = p
+            }
+        }
+
+        for (name, rb) in retiredBytes {
+            if merged[name] == nil {
+                merged[name] = ProcessNetUsage(
+                    id: name,
+                    processName: name,
+                    pid: 0,
+                    bytesIn: rb.bytesIn,
+                    bytesOut: rb.bytesOut,
+                    rateIn: 0,
+                    rateOut: 0,
+                    icon: nil,
+                    bundleId: nil,
+                    appPath: nil
+                )
+            }
+        }
+
+        var allProcesses = Array(merged.values)
         allProcesses.sort { $0.totalBytes > $1.totalBytes }
 
         let sessionIn = allProcesses.reduce(Int64(0)) { $0 + $1.bytesIn }
