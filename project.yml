@@ -1,0 +1,32 @@
+name: NetWatch
+options:
+  bundleIdPrefix: com.netwatch
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+  generateEmptyDirectories: true
+
+packages:
+  GRDB:
+    url: https://github.com/groue/GRDB.swift.git
+    from: "7.0.0"
+
+targets:
+  NetWatch:
+    type: application
+    platform: macOS
+    sources:
+      - NetWatch
+    settings:
+      base:
+        INFOPLIST_FILE: NetWatch/App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: NetWatch/App/NetWatch.entitlements
+        PRODUCT_BUNDLE_IDENTIFIER: com.netwatch.NetWatch
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.10"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_HARDENED_RUNTIME: false
+    dependencies:
+      - package: GRDB
